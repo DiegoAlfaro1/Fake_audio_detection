@@ -1,21 +1,6 @@
 Compiled test metrics: {'accuracy': 0.821, 'auc': 0.9083, 'loss': 0.4865, 'precision': 0.8571, 'recall': 0.7691}
 
 AUC (sklearn): 0.9085
-EER: 0.1754 at threshold 0.2806
-
---- threshold = 0.50 ---
-              precision    recall  f1-score   support
-
-    fake (0)     0.7918    0.8726    0.8302      6655
-    real (1)     0.8571    0.7691    0.8107      6613
-
-    accuracy                         0.8210     13268
-   macro avg     0.8244    0.8208    0.8205     13268
-weighted avg     0.8243    0.8210    0.8205     13268
-
-Macro F1 @ 0.50: 0.8205
-
---- threshold = 0.3740 (chosen on val) ---
               precision    recall  f1-score   support
 
     fake (0)     0.8089    0.8496    0.8287      6655
