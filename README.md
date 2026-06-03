@@ -39,7 +39,7 @@ Se usan los audios del dataset **"The Fake or Real Dataset"** y se dividen en tr
 - **Prueba (testing):** audios diferentes (versión "rerec") que el modelo **nunca vio antes**,
   para comprobar que de verdad aprendió y no solo memorizó.
 
-### 4. Crear variaciones de los audios (aumentación)
+### 4. Crear variaciones de los audios
 
 Para que el modelo sea más fuerte y no se confunda, durante el entrenamiento se le agregan
 "dificultades" al sonido, por ejemplo:
@@ -51,11 +51,11 @@ Para que el modelo sea más fuerte y no se confunda, durante el entrenamiento se
 
 Así el modelo aprende a reconocer la voz aunque el audio no esté perfecto.
 
-### 5. El modelo (la "red neuronal")
+### 5. El modelo
 
 Es una combinación de dos tipos de red:
 
-- **CNN (capas convolucionales):** buscan patrones en la imagen del audio.
+- **CNN:** buscan patrones en la imagen del audio.
 - **BiLSTM:** analiza cómo cambia el sonido a lo largo del tiempo.
 
 Al final, el modelo da un número entre 0 y 1:
@@ -74,15 +74,15 @@ El modelo aprende durante varias vueltas (épocas). Mientras entrena:
 - Si deja de mejorar, se **detiene solo** para no perder tiempo.
 - Si se estanca, baja la velocidad de aprendizaje para afinar mejor.
 
-### 7. Evaluación (¿qué tan bueno es?)
+### 7. Evaluación
 
 Al final se mide el desempeño con los audios de prueba usando varias métricas:
 
 - **Accuracy:** qué porcentaje acertó.
 - **Precision y Recall:** qué tan confiable es al decir "real" o "fake".
 - **F1:** un balance entre las dos anteriores.
-- **AUC y EER:** medidas técnicas de qué tan bien separa lo real de lo falso.
-- **Matriz de confusión:** una tabla que muestra los aciertos y los errores.
+- **AUC y EER:** qué tan bien separa lo real de lo falso.
+- **Matriz de confusión:** tabla que muestra los aciertos y los errores.
 
 ---
 
