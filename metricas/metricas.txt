@@ -1,11 +1,28 @@
-Compiled test metrics: {'accuracy': 0.821, 'auc': 0.9083, 'loss': 0.4865, 'precision': 0.8571, 'recall': 0.7691}
+Compiled test metrics: {'accuracy': 0.8675, 'auc': 0.9568, 'loss': 0.3853, 'precision': 0.8125, 'recall': 0.9543}
 
-AUC (sklearn): 0.9085
+AUC (sklearn): 0.9571
+EER: 0.1061 at threshold 0.8482
+
+--- threshold = 0.50 ---
               precision    recall  f1-score   support
 
-    fake (0)     0.8089    0.8496    0.8287      6655
-    real (1)     0.8406    0.7980    0.8187      6613
+    fake (0)     0.9451    0.7812    0.8554      6655
+    real (1)     0.8125    0.9543    0.8777      6613
 
-    accuracy                         0.8239     13268
-   macro avg     0.8247    0.8238    0.8237     13268
-weighted avg     0.8247    0.8239    0.8237     13268
+    accuracy                         0.8675     13268
+   macro avg     0.8788    0.8678    0.8666     13268
+weighted avg     0.8790    0.8675    0.8665     13268
+
+Macro F1 @ 0.50: 0.8666
+
+--- threshold = 0.3840 (chosen on val) ---
+              precision    recall  f1-score   support
+
+    fake (0)     0.9537    0.7434    0.8355      6655
+    real (1)     0.7886    0.9637    0.8674      6613
+
+    accuracy                         0.8532     13268
+   macro avg     0.8712    0.8535    0.8515     13268
+weighted avg     0.8714    0.8532    0.8514     13268
+
+Macro F1 @ val threshold: 0.8515
