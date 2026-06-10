@@ -179,9 +179,7 @@ Detalle por clase (umbral 0.50):
 | fake (0) | 94.51 %   | 78.12 % | 85.54 % | 6 655   |
 | real (1) | 81.25 %   | 95.43 % | 87.77 % | 6 613   |
 
-> El umbral también se puede ajustar. En `0.384` (elegido sobre validación para maximizar la F1
-> macro) el modelo detecta aún mejor los audios reales (recall 96.4 %), a cambio de unos cuantos
-> falsos positivos más. La matriz de confusión de abajo corresponde a este umbral.
+> El umbral también se puede ajustar. En `0.384` (elegido sobre validación para maximizar la F1 > macro) el modelo detecta aún mejor los audios reales (recall 96.4 %), a cambio de unos cuantos > falsos positivos más. La matriz de confusión de abajo corresponde a este umbral.
 
 ### Gráficas
 
@@ -189,10 +187,7 @@ Detalle por clase (umbral 0.50):
 
 ![Curvas de pérdida y precisión](metricas/loss_accuracy.png)
 
-Las dos curvas (entrenamiento y validación) **bajan en pérdida y suben en precisión** de forma
-estable a lo largo de las **15 épocas**. La validación va siempre por encima en accuracy y por debajo
-en pérdida, lo que indica que el modelo **aprende bien y no se sobreajusta**; al final llega a
-~97 % de accuracy en entrenamiento y ~99 % en validación.
+Las dos curvas (entrenamiento y validación) **bajan en pérdida y suben en precisión** de forma estable a lo largo de las **15 épocas**. La validación va siempre por encima en accuracy y por debajo en pérdida, lo que indica que el modelo **aprende bien y no se sobreajusta**; al final llega a ~97 % de accuracy en entrenamiento y ~99 % en validación.
 
 **Matriz de confusión** (conjunto de prueba)
 
@@ -208,8 +203,75 @@ Su principal área de mejora es reducir los falsos que logran "pasar" como reale
 ### Interpretación general
 
 Con un **AUC de 0.957** y un **EER de ~10.6 %**, el modelo separa muy bien lo real de lo falso.
-Acierta en aproximadamente **87 de cada 100** audios que nunca había visto, lo cual es un resultado
-sólido para esta tarea.
+Acierta en aproximadamente **87 de cada 100** audios que nunca había visto, lo cual es un resultado sólido para esta tarea.
+
+---
+
+## Refinamiento del modelo
+
+Después de la **evaluación inicial** se hizo un proceso de refinamiento. Se partió de una **versión
+inicial** del entrenamiento (con la **misma arquitectura, optimizador y función de pérdida** que la
+versión final) y se midió su desempeño; luego se ajustó el **pipeline de datos y el régimen de
+entrenamiento**, y se comparó contra esa versión inicial sobre el **mismo conjunto de prueba**
+(13 268 audios de `for-rerec`).
+
+### 1. Medición del modelo inicial (baseline)
+
+La versión inicial usaba un pipeline de datos con **caché**: los espectrogramas se calculaban una sola vez **sin augmentación de forma de onda** (se guardaban en caché ya transformados) y solo se variaba **SpecAugment** sobre la imagen ya fija. Además entrenaba con **batch 64** y hasta **40 épocas**.
+
+El resultado fue un **modelo colapsado**: durante el entrenamiento la accuracy subía (~0.97) pero el **AUC se quedaba en ~0.55** y la validación predecía **casi siempre una sola clase** (recall de "real" cercano a 0). En la prueba final el modelo etiquetaba casi todos los audios como "fake":
+
+| Métrica (test) | Versión inicial |
+| -------------- | --------------- |
+| Accuracy       | 50.16 %         |
+| Macro F1       | 0.3340          |
+| AUC            | ~0.59           |
+| Recall real    | 0.00 %          |
+
+Es decir, el modelo **no aprendió a distinguir** voces reales de falsas: rendía como el azar.
+
+### 2. Ajustes aplicados
+
+El diagnóstico fue **falta de variedad en los datos de entrenamiento**: al cachear los espectrogramas y aplicar solo SpecAugment, el modelo veía esencialmente los mismos ejemplos en cada época y se colapsaba. Los ajustes principales fueron:
+
+| Ajuste                                      | De → A                                                                                     | Por qué                                                                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| **Augmentación de forma de onda por época** | solo SpecAugment (cacheado) → ruido + pasa-bajos + reverb **+** SpecAugment, **sin caché** | Cada época genera variaciones nuevas del audio, evitando el colapso y forzando a generalizar. |
+| **Tamaño de batch**                         | 64 → **32**                                                                                | Batches más pequeños dan gradientes más ruidosos que regularizan y mejoran la generalización. |
+| **Épocas efectivas**                        | 40 → **15**                                                                                | Con la augmentación correcta el modelo converge bien en menos épocas, sin colapsar.           |
+
+Se conservaron, ya validadas, las demás decisiones de diseño: **AdamW** (`weight_decay` desacoplado que generaliza mejor que Adam [4]), **label smoothing (0.05)**, **pesos de clase** para el desbalance, **SpatialDropout2D / Dropout** y los callbacks **EarlyStopping + ReduceLROnPlateau**.
+
+### 3. Comparación antes / después (mejoras reportadas)
+
+Sobre el **mismo conjunto de prueba** y al umbral por defecto (0.50):
+
+| Métrica (test) | Versión inicial | Versión refinada | Mejora        |
+| -------------- | --------------- | ---------------- | ------------- |
+| Accuracy       | 50.16 %         | **86.75 %**      | **+36.59 pp** |
+| Macro F1       | 0.3340          | **0.8666**       | **+0.5326**   |
+| AUC            | ~0.59           | **0.957**        | **+0.37**     |
+| Recall real    | 0.00 %          | **95.43 %**      | **+95.4 pp**  |
+
+El refinamiento llevó al modelo de tener un rendimiento al azar, una sola clase predicha, a un
+detector **sólido** (AUC 0.957, EER ~10.6 %). El cambio decisivo fue **regenerar la augmentación de audio en cada época en lugar de cachearla**, lo que se confirma en las **curvas de pérdida y precisión**: en la versión final las curvas de entrenamiento y validación bajan en pérdida y suben
+en accuracy de forma estable, **sin separación creciente**, señal de que se controló el sobreajuste.
+
+### 4. Ajuste fino del umbral de decisión
+
+El modelo entrega una probabilidad de "real"; el **umbral** con que se corta esa probabilidad es un hiperparámetro que se puede afinar **sin reentrenar**. Se midió el desempeño en el **mismo conjunto de prueba** (13 268 audios) con el umbral por defecto (0.50) y con un umbral **seleccionado sobre el conjunto de validación** (0.384) para favorecer la detección de voces reales:
+
+| Métrica (test)      | Umbral 0.50 (inicial) | Umbral 0.384 (refinado) | Cambio    |
+| ------------------- | --------------------- | ----------------------- | --------- |
+| Accuracy            | 86.75 %               | 85.32 %                 | −1.43     |
+| **Recall real (1)** | 95.43 %               | **96.37 %**             | **+0.94** |
+| Recall fake (0)     | 78.12 %               | 74.34 %                 | −3.78     |
+| F1 macro            | **86.66 %**           | 85.15 %                 | −1.51     |
+
+El ajuste de umbral es un _trade-off_ explícito: bajar el umbral a 0.384 **mejora el recall sobre voces reales** (de 95.43 % a 96.37 %), pero a costa de dejar pasar más audios falsos y de bajar la F1 macro. Como para esta tarea la métrica más balanceada (F1 macro y AUC) es prioritaria, **se reporta el umbral 0.50 como
+configuración principal** (F1 macro 86.66 %, AUC 0.957), dejando el umbral 0.384 documentado como alternativa cuando el caso de uso exige **maximizar el recall de voces reales**.
+
+> El **AUC (0.957)** y el **EER (10.6 %)** no dependen del umbral, por lo que resumen la capacidad de separación del modelo de forma independiente de este ajuste.
 
 ---
 
